@@ -1,7 +1,6 @@
-// Minimal azure-document.service.js (split-only delivery)
-// This file intentionally only contains the minimal methods needed by the split
-// flow (layout extraction). All heavy extraction/mapping logic is archived in
-// archive/extraction/ and not present here.
+// Azure Document Intelligence Layout Service
+// Handles PDF layout extraction using Azure Document Intelligence prebuilt-layout model
+// Flow: PDF → Azure DI Layout API → Layout JSON → OpenAI Processing → Structured Data
 
 const fs = require('fs');
 
@@ -17,6 +16,7 @@ class AzureDocumentLayoutService {
       if (cfg && typeof cfg.initialize === 'function') cfg.initialize();
       if (cfg && typeof cfg.getFormRecognizerClient === 'function') this.client = cfg.getFormRecognizerClient();
     } catch (e) {
+      console.error('Failed to initialize Azure Document Intelligence client:', e.message);
       this.client = null;
     }
   }
@@ -50,6 +50,43 @@ class AzureDocumentLayoutService {
   }
 
   isConfigured() { return !!this.client; }
+
+  // Get complete layout JSON from PDF for extraction processing
+  async getLayoutFromPDF(filePath) {
+    try {
+      await this.initialize();
+      if (!this.client) {
+        return { success: false, error: 'Azure Document Intelligence client not configured' };
+      }
+
+      const pdfBuffer = fs.readFileSync(filePath);
+      console.log(`Analyzing PDF with Azure Document Intelligence Layout API...`);
+      
+      // Use prebuilt-layout model to extract complete document structure
+      const poller = await this.client.beginAnalyzeDocument('prebuilt-layout', pdfBuffer);
+      const result = await poller.pollUntilDone();
+      
+      if (!result) {
+        return { success: false, error: 'No result from Azure Document Intelligence' };
+      }
+
+      // Return complete layout structure for OpenAI processing
+      const layout = {
+        content: result.content || '',
+        pages: result.pages || [],
+        tables: result.tables || [],
+        paragraphs: result.paragraphs || [],
+        keyValuePairs: result.keyValuePairs || []
+      };
+
+      console.log(`Layout extraction successful: ${layout.pages.length} pages, ${layout.tables.length} tables`);
+      return { success: true, layout };
+      
+    } catch (error) {
+      console.error('Layout extraction error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
 
   // Disabled heavy APIs — archived
   async mapInvoiceToSchema() { throw new Error('mapInvoiceToSchema is disabled in split-only delivery'); }

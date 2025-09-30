@@ -1,14 +1,30 @@
-# 🔄 Smart Invoice Splitting API
+# 🔄 Smart Invoice Processing API
 
-Backend API integration example for smart invoice splitting using Azure Document Intelligence and OpenAI. This project demonstrates how to automatically identify invoice boundaries within multi-page PDF documents and generate separate invoice files through a REST API.
+Comprehensive backend API for smart invoice processing using Azure Document Intelligence and OpenAI. This project provides two main capabilities:
+
+1. **Smart Invoice Splitting** - Automatically identify invoice boundaries within multi-page PDF documents and generate separate invoice files
+2. **Data Extraction** - Extract structured data from individual invoices with comprehensive field recognition
 
 ## 🎯 Key Features
 
+### Invoice Splitting
 - **AI Boundary Detection**: Automatically identifies individual invoices within multi-page PDFs
 - **Smart Text Analysis**: Uses Azure Document Intelligence for layout and text extraction  
 - **LLM Processing**: Leverages Azure OpenAI to understand document structure and boundaries
-- **REST API**: Clean, well-documented API endpoints for integration
 - **Batch Processing**: Handle multiple PDF files with progress tracking
+
+### Data Extraction
+- **Complete Data Extraction**: Extracts all invoice elements including products, fees, taxes, shipping, discounts
+- **Structured JSON Output**: Returns standardized invoice data schema
+- **Multiple Processing Methods**: Standard and chunked processing for large documents
+- **AI-Powered Analysis**: Uses Azure OpenAI for intelligent field extraction
+- **Schema Validation**: Validates extracted data against predefined schemas
+- **Data Normalization**: Automatic currency, country, and date standardization
+
+### General Features
+- **REST API**: Clean, well-documented API endpoints for integration
+- **Token Management**: Intelligent handling of Azure OpenAI token limits
+- **Error Recovery**: Robust error handling with retry mechanisms
 
 ## 🏗️ API Architecture & Flow
 
@@ -59,16 +75,34 @@ Backend API integration example for smart invoice splitting using Azure Document
           ▼
 ┌─────────────────┐
 │Individual PDFs  │ ◄─── Split PDFs Generated
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Data Extraction │ ◄─── POST /api/extract-pdf
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│Structured Data  │ ◄─── JSON Invoice Data
 └─────────────────┘
 ```
 
 ### API Processing Pipeline
 
+#### Invoice Splitting Workflow
 1. **PDF Upload** → `POST /api/upload` - File stored and batch created
 2. **Start Processing** → `POST /api/batches/:id/process` - Azure Document Intelligence extracts content and layout
 3. **Boundary Detection** → Azure OpenAI GPT-4 analyzes text to find invoice separators
 4. **Apply Splits** → `POST /api/batches/:id/validate-splits` - pdf-lib creates individual invoice files
 5. **Generate Files** → Individual PDFs created and stored
+
+#### Data Extraction Workflow
+1. **PDF Analysis** → Azure Document Intelligence extracts layout and text
+2. **Table Detection** → Identifies and processes table structures
+3. **AI Extraction** → OpenAI processes content using specialized prompts
+4. **Schema Validation** → Zod validates and normalizes extracted data
+5. **JSON Response** → Structured invoice data returned
 
 ## 📚 Azure Services Documentation
 
@@ -176,7 +210,7 @@ npm run health-check
 
 ## 🔍 API Endpoints
 
-### Core Operations
+### Invoice Splitting Operations
 - `POST /api/upload` - Upload PDF file and create batch
 - `GET /api/batches` - List all processing batches
 - `GET /api/batches/:id` - Get specific batch information
@@ -185,8 +219,129 @@ npm run health-check
 - `PUT /api/batches/:id/splits` - Update splits manually
 - `GET /api/batches/:id/status` - Get processing status
 - `DELETE /api/batches/:id` - Delete batch and associated files
-- `GET /api/health` - Check Azure services health
 
+### Data Extraction Operations
+- `POST /api/extract` - Extract structured data from Azure Document Intelligence Layout JSON
+- `POST /api/extract-chunked` - Extract using chunked processing for large documents
+- `POST /api/extract-pdf` - Extract directly from PDF file upload
+- `POST /api/extract-pdf-chunked` - Extract from PDF using chunked processing
+
+### System Operations
+- `GET /api/health` - Check Azure services health
+- `GET /ping` - Basic health check
+
+## 📊 Extracted Data Schema
+
+The data extraction feature provides comprehensive structured data from invoices:
+
+### Line Items
+```json
+{
+  "productCode": "string",
+  "description": "string", 
+  "hsCode": "string",
+  "originCountry": "string",
+  "totalAmount": "number",
+  "netWeight": "number",
+  "grossWeight": "number", 
+  "quantity": "number",
+  "UOM": "string",
+  "type": "product|shipping|tax|fee|discount|other",
+  "rate": "number",
+  "baseAmount": "number",
+  "currency": "string",
+  "category": "string"
+}
+```
+
+### Basic Information
+```json
+{
+  "internalReference": "string",
+  "documentType": "string",
+  "documentNumber": "string", 
+  "documentDate": "string",
+  "dispatchCountry": "string",
+  "finalDestination": "string",
+  "originCountries": "string",
+  "incoterms": "string",
+  "incotermsCity": "string",
+  "commodityCode": "string",
+  "totalPackages": "number",
+  "parcelType": "string"
+}
+```
+
+### Totals and Subtotals
+```json
+{
+  "airFee": "number",
+  "otherFee1": "number", 
+  "insuranceFee": "number",
+  "rebate": "number",
+  "amountDue": "number",
+  "currency": "string",
+  "totalNetWeight": "number",
+  "totalGrossWeight": "number",
+  "totalQuantity": "number",
+  "totalVolume": "number"
+}
+```
+
+### Importer/Exporter Information
+```json
+{
+  "name": "string",
+  "eoriNumber": "number",
+  "vatNumber": "number", 
+  "rexNumber": "number",
+  "address": "string",
+  "city": "string",
+  "zipCode": "number",
+  "country": "string"
+}
+```
+
+## 🔧 Usage Examples
+
+### Extract from PDF File
+```bash
+curl -X POST http://localhost:3000/api/extract-pdf \
+  -F "pdf=@invoice.pdf"
+```
+
+### Extract from Layout JSON
+```bash
+curl -X POST http://localhost:3000/api/extract \
+  -H "Content-Type: application/json" \
+  -d @layout.json
+```
+
+### Node.js Example
+```javascript
+const FormData = require('form-data');
+const fs = require('fs');
+const fetch = require('node-fetch');
+
+async function extractFromPDF(pdfPath) {
+  const form = new FormData();
+  form.append('pdf', fs.createReadStream(pdfPath));
+  
+  const response = await fetch('http://localhost:3000/api/extract-pdf', {
+    method: 'POST',
+    body: form
+  });
+  
+  const result = await response.json();
+  
+  if (result.success) {
+    console.log('Extracted items:', result.data.extract.lineItems.length);
+    return result.data.extract;
+  } else {
+    throw new Error(result.error);
+  }
+}
+```
 
 ## 📁 Project Structure
 
@@ -200,7 +355,11 @@ smart-invoice-splitting-api/
 │   ├── services/                 # Core business logic
 │   │   ├── azure-document.service.js # Document Intelligence integration
 │   │   ├── azure-openai.service.js   # OpenAI GPT-4 integration
-│   │   └── pdf-splitter.service.js   # PDF manipulation
+│   │   ├── pdf-splitter.service.js   # PDF manipulation
+│   │   └── extractor/            # Data extraction services
+│   │       ├── extractFromLayout.js     # Main extraction logic
+│   │       ├── extractFromLayoutChunked.js # Chunked processing
+│   │       └── deriveProductTableHints.js  # Table analysis
 │   ├── models/                   # Data models
 │   │   └── document-batch.model.js   # SQLite database operations
 │   ├── routes/                   # API routes
@@ -208,6 +367,10 @@ smart-invoice-splitting-api/
 │   ├── config/                   # Configuration & validation
 │   │   ├── database.js           # SQLite database setup
 │   │   └── env-validator.js      # Environment validation
+│   ├── validation/               # Schema validation
+│   │   └── invoice-extract.zod.js    # Zod schemas for extraction
+│   ├── prompts/                  # AI prompts
+│   │   └── extractInvoice.js     # Extraction prompts
 │   └── utils/                    # Utilities & logging
 ├── storage/                      # File storage (uploads, splits)
 │   ├── uploads/                  # Original PDF files
@@ -229,6 +392,9 @@ smart-invoice-splitting-api/
 - **multer** - File upload handling
 - **helmet** - Security middleware
 - **cors** - Cross-origin resource sharing
+- **zod** - Schema validation for extracted data
+- **dayjs** - Date parsing and normalization
+- **i18n-iso-countries** - Country code normalization
 
 
 

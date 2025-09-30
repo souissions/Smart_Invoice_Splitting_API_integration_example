@@ -56,7 +56,7 @@ class AzureConfig {
     this.openAIClient = new OpenAI({
       apiKey: process.env.AZURE_OPENAI_KEY,
       baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
-      defaultQuery: { 'api-version': '2024-02-01' },
+      defaultQuery: { 'api-version': process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview' },
       defaultHeaders: {
         'api-key': process.env.AZURE_OPENAI_KEY,
       },
