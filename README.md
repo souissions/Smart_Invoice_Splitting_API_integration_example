@@ -178,7 +178,7 @@ AZURE_FORM_RECOGNIZER_KEY=your-form-recognizer-key
 # Azure OpenAI (REQUIRED)
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_KEY=your-openai-key
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o  # Can use gpt-4, gpt-4-turbo, gpt-4o, or other models
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o  # Can use other models
 
 # Application Settings
 NODE_ENV=development
@@ -315,32 +315,6 @@ curl -X POST http://localhost:3000/api/extract-pdf \
 curl -X POST http://localhost:3000/api/extract \
   -H "Content-Type: application/json" \
   -d @layout.json
-```
-
-### Node.js Example
-```javascript
-const FormData = require('form-data');
-const fs = require('fs');
-const fetch = require('node-fetch');
-
-async function extractFromPDF(pdfPath) {
-  const form = new FormData();
-  form.append('pdf', fs.createReadStream(pdfPath));
-  
-  const response = await fetch('http://localhost:3000/api/extract-pdf', {
-    method: 'POST',
-    body: form
-  });
-  
-  const result = await response.json();
-  
-  if (result.success) {
-    console.log('Extracted items:', result.data.extract.lineItems.length);
-    return result.data.extract;
-  } else {
-    throw new Error(result.error);
-  }
-}
 ```
 
 ## 📁 Project Structure
